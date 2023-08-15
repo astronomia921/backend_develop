@@ -52,6 +52,9 @@ class Task(models.Model):
             if choice[0] else 0 for choice in TaskStatus.choices),
         choices=TaskStatus.choices,
     )
+    class Meta:
+        verbose_name = 'Задача'
+        verbose_name_plural = 'Задачи'
 
     @property
     def is_expired(self):
