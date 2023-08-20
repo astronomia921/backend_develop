@@ -3,13 +3,8 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
-
-from backend.settings import (
-    MAX_LENGTH_USERNAME, MAX_LENGTH_EMAIL,
-    MIN_LENGTH_PASSWORD, MAX_LENGTH_PASSWORD
-    )
-
-
+from backend.settings import MAX_LENGTH_USERNAME, MAX_LENGTH_EMAIL
+# from api.utils import send_activation_email
 class UserRole(models.TextChoices):
     """ Роли пользователей. """
     USER = 'user', 'Пользователь'
@@ -31,6 +26,17 @@ class DepartmentName(models.TextChoices):
     UX_UI = 'UX_UI'
     QA = 'QA'
     NONE = 'None'
+
+
+class AllowedEmail(models.Model):
+    email = models.EmailField(unique=True)
+
+    class Meta:
+        verbose_name = "Разрешенные email"
+        verbose_name_plural = "Разрешенные email"
+
+    def __str__(self):
+        return self.email
 
 
 class Department(models.Model):
@@ -144,24 +150,22 @@ class CustomUserManager(UserManager):
     def create_superuser(
             self,
             username,
-            email, password,
-            first_name, last_name, second_name,
+            email, password, first_name, last_name,
             **extra_fields
             ):
         extra_fields.setdefault('role', UserRole.ADMIN)
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('first_name', first_name)
+        extra_fields.setdefault('last_name', last_name)
         return super().create_superuser(
-            username=username, first_name=first_name,
-            last_name=last_name, second_name=second_name,
-            email=email, password=password,
-            **extra_fields)
+            username, email, password, **extra_fields)
 
     def create_user(
             self, username, email, password,
-            first_name, last_name, second_name, **extra_fields
-            ):
+            first_name, last_name, **extra_fields
+    ):
         default_position = User._meta.get_field("position").get_default()
         default_experience = User._meta.get_field("experience").get_default()
         extra_fields.setdefault("position", default_position)
@@ -170,11 +174,12 @@ class CustomUserManager(UserManager):
         extra_fields.setdefault('is_active', True)
         extra_fields.setdefault('first_name', first_name)
         extra_fields.setdefault('last_name', last_name)
-        extra_fields.setdefault('second_name', second_name)
-        return super().create_user(
+        user = super().create_user(
             username, email, password,
             **extra_fields,
         )
+        send_activation_email(user, activation_token)
+        return user
 
 
 class User(AbstractUser):
@@ -227,12 +232,6 @@ class User(AbstractUser):
         verbose_name='Фамилия',
         max_length=MAX_LENGTH_USERNAME,
         help_text='Введите вашу фамилию',
-        blank=False
-    )
-    second_name = models.CharField(
-        verbose_name='Отчество',
-        max_length=MAX_LENGTH_USERNAME,
-        help_text='Введите ваш отчество',
         blank=False
     )
     birthday = models.DateField(
@@ -291,11 +290,6 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
-    contact = models.TextField(
-        verbose_name='Контакты',
-        help_text='Введите список ваших доступных контактов',
-        blank=True
-    )
     is_staff = models.BooleanField(
         verbose_name='Является ли пользователь персоналом',
         default=False
@@ -311,7 +305,6 @@ class User(AbstractUser):
         'username',
         'first_name',
         'last_name',
-        'second_name',
         'birthday',
         'password',
     )
@@ -325,7 +318,7 @@ class User(AbstractUser):
         return f"{self.first_name} {self.last_name}"
 
     def get_full_name(self):
-        return f"{self.last_name} {self.first_name} {self.second_name}"
+        return f"{self.last_name} {self.first_name}"
 
     def get_short_name(self):
         return self.first_name
@@ -353,6 +346,15 @@ class User(AbstractUser):
         Возвращает роль / права.
         """
         return self.role == role
+
+
+class Contact(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='Contact')
+    platform = models.CharField(max_length=50)
+    link = models.URLField()
+
+    def __str__(self):
+        return f"{self.user.first_name} - {self.platform}"
 
 
 class Membership(models.Model):
