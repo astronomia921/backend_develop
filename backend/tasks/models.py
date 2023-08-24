@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from .signals import task_status_changed
 from django.utils.translation import gettext as _
 import datetime
 
@@ -12,6 +13,8 @@ class TaskStatus(models.TextChoices):
     TASK_FINISHED = 'Задача выполнена исполнителем'
     __empty__ = _('(Статус задачи не определён)')
 # Необходимо разграничивать выставление статуса в зависимости от роли
+# состояние задачи
+
 
 
 class Task(models.Model):
@@ -52,9 +55,11 @@ class Task(models.Model):
             if choice[0] else 0 for choice in TaskStatus.choices),
         choices=TaskStatus.choices,
     )
+
     class Meta:
         verbose_name = 'Задача'
         verbose_name_plural = 'Задачи'
+
 
     @property
     def is_expired(self):
