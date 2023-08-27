@@ -1,38 +1,38 @@
 from django.db import models
 from django.conf import settings
-from django.utils.translation import gettext as _
 import datetime
 
 
-class TaskStatus(models.TextChoices):
-    """ Task status"""
-    TASK_CLOSED = 'Задача завершена'
-    TASK_DELEGATED = 'Задача назначена'
-    TASK_ACCEPTED = 'Задача принята исполнителем'
-    TASK_FINISHED = 'Задача выполнена исполнителем'
-    __empty__ = _('(Статус задачи не определён)')
-# Необходимо разграничивать выставление статуса в зависимости от роли
-
-
 class Task(models.Model):
-    """Task model"""
-    task_title = models.TextField(
-        verbose_name='Название задачи'
+    """Модель задач"""
+    TASK_STATUS_CHOICES = [
+        ('assigned', 'Задача принята'),
+        ('review', 'Задача на ревью'),
+        ('completed', 'Задача завершена'),
+        ('revised', 'Есть замечания'),
+    ]
+    TASK_PRIORITY_CHOICES = [
+        (1, 'Низкий'),
+        (2, 'Средний'),
+        (3, 'Высокий'),
+    ]
+    task_title = models.CharField(
+        verbose_name='Название задачи',
+        max_length=50
     )
     team_lead_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_DEFAULT,
-        null=True,
-        default='deleted_user',
-        related_name='delegated_tasks'
+        on_delete=models.PROTECT,
+        related_name='delegated_tasks',
+        verbose_name='Тимлидер'
     )
-
     employee_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_DEFAULT,
+        on_delete=models.PROTECT,
+        blank=True,
         null=True,
-        default='deleted_user',
-        related_name='accepted_tasks'
+        related_name='accepted_tasks',
+        verbose_name='Исполнитель'
     )
     task_description = models.TextField(
         verbose_name='Описание задачи'
@@ -41,26 +41,34 @@ class Task(models.Model):
         auto_now_add=True,
         verbose_name='Дата назначения задачи'
     )
+    task_date_modified = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Дата обновления задачи'
+    )
     task_date_finish = models.DateField(
         verbose_name='Плановая дата завершения задачи'
     )
-
     task_status = models.CharField(
         verbose_name='Текущий статус задачи',
-        max_length=max(
-            len(choice[0])
-            if choice[0] else 0 for choice in TaskStatus.choices),
-        choices=TaskStatus.choices,
+        choices=TASK_STATUS_CHOICES,
+        max_length=20
+    )
+    task_priority = models.IntegerField(
+        verbose_name='Приоритет задачи',
+        choices=TASK_PRIORITY_CHOICES,
+        default=1
     )
 
     @property
     def is_expired(self):
-        """проверяем. что событие не просрочено"""
-        return datetime.date.today() > self.task_date_finish
+        """Проверяем, что задача не просрочена"""
+        if self.task_date_finish:
+            return datetime.date.today() > self.task_date_finish
+        return False
 
-    # для проверки статуса:
-    #
-    # task = Task.objects.first()
-    #
-    # if task.is_expired:
-    # do something
+    def __str__(self):
+        return str(self.task_title)
+
+    class Meta:
+        verbose_name = 'Задача'
+        verbose_name_plural = 'Задачи'
