@@ -1,6 +1,5 @@
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.conf import settings
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 from backend.settings import MAX_LENGTH_USERNAME, MAX_LENGTH_EMAIL
@@ -243,21 +242,7 @@ class User(AbstractUser):
         verbose_name='Пароль',
         help_text='Введите пароль',
         max_length=MAX_LENGTH_USERNAME,
-        blank=False,
-        validators=[
-            MinValueValidator(
-                MIN_LENGTH_PASSWORD,
-                message=(
-                    'Пароль должен содержать минимум'
-                    f'{MIN_LENGTH_PASSWORD} символа!')
-                ),
-            MaxValueValidator(
-                MAX_LENGTH_PASSWORD,
-                message=(
-                    'Пароль не может быть длиннее'
-                    f'{MAX_LENGTH_PASSWORD} символов!')
-                )
-        ]
+        blank=False
     )
     role = models.CharField(
         verbose_name='Роль',
